@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+    <meta name="theme-color" content="#28734f" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Piano Dino" />
+    <meta name="format-detection" content="telephone=no" />
+    <meta name="description" content="Piano Dino — a playful piano adventure for children ages 3 to 7." />
+    <title>Piano Dino — Piano adventures for little musicians</title>
+    <link rel="icon" href="icons/icon-192.png" type="image/png" />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <button class="brand" data-go="home" aria-label="Go to home">
+          <img class="brand-logo" src="icons/piano-dino-logo.png" alt="" />
+          <span>Piano Dino</span>
+        </button>
+        <div class="topbar-actions">
+          <button class="install-app-button" id="install-app" type="button">Install app</button>
+          <div class="streak-pill" title="Practice streak"><span>✦</span><strong>4</strong><span class="streak-label">day streak</span></div>
+          <button class="avatar" aria-label="Open profile">AM</button>
+        </div>
+      </header>
+
+      <main>
+        <section class="view home-view is-active" id="home-view" aria-label="Piano activities">
+          <div class="choice-grid" aria-label="Choose a learning path">
+            <button class="choice-card lesson-choice" data-go="lessons">
+              <span class="choice-art lesson-art" aria-hidden="true">
+                <span class="dino-spike spike-one"></span><span class="dino-spike spike-two"></span><span class="dino-spike spike-three"></span>
+                <span class="lesson-ring"><span>🦕</span><small>LEARN</small></span>
+              </span>
+              <span class="choice-content">
+                <strong>Learning Piano</strong>
+                <small>Grow your skills step by step</small>
+              </span>
+            </button>
+
+            <button class="choice-card practice-choice" data-go="songs">
+              <span class="choice-art piano-art" aria-hidden="true">
+                <span class="mini-key"></span><span class="mini-key black"></span><span class="mini-key"></span><span class="mini-key black"></span><span class="mini-key"></span><span class="mini-key"></span><span class="mini-key black"></span><span class="mini-key"></span>
+              </span>
+              <span class="choice-content">
+                <strong>Practice songs</strong>
+                <small>Play melodies you already know</small>
+              </span>
+            </button>
+
+            <button class="choice-card full-song-choice" data-go="fullsongs">
+              <span class="choice-art full-song-art" aria-hidden="true">
+                <span class="fall-bar bar-one">E</span><span class="fall-bar bar-two">G</span><span class="fall-bar bar-three">C</span><span class="fall-hit-line"></span>
+              </span>
+              <span class="choice-content">
+                <strong>Play full songs</strong>
+                <small>Perform with falling notes and scoring</small>
+              </span>
+            </button>
+          </div>
+        </section>
+
+        <section class="view catalog-view" id="songs-view" aria-labelledby="songs-title">
+          <div class="section-heading">
+            <button class="back-button" data-go="home" aria-label="Back to home">←</button>
+            <div><p class="eyebrow">120 PIECES IN FOUR CATEGORIES</p><h2 id="songs-title">Practice <em>songs</em></h2></div>
+          </div>
+          <div class="catalog-tools">
+            <label class="search-box"><span>⌕</span><input id="song-search" type="search" placeholder="Search songs or composers" /></label>
+            <div class="filter-row" id="song-filters" aria-label="Filter songs">
+              <button class="filter-chip is-active" data-filter="All">All</button>
+              <button class="filter-chip" data-filter="Kids & Folk">Kids & Folk</button>
+              <button class="filter-chip" data-filter="Classical">Classical</button>
+              <button class="filter-chip christian-filter" data-filter="Christian & Hymns">Christian & Hymns</button>
+              <button class="filter-chip" data-filter="Ragtime">Ragtime</button>
+            </div>
+          </div>
+          <div class="song-summary"><span id="song-count">100 songs</span><button id="shuffle-song">Shuffle play ↝</button></div>
+          <div class="song-list" id="song-list"></div>
+        </section>
+
+        <section class="view catalog-view full-song-catalog" id="fullsongs-view" aria-labelledby="fullsongs-title">
+          <div class="section-heading">
+            <button class="back-button" data-go="home" aria-label="Back to home">←</button>
+            <div><p class="eyebrow">PERFORM FROM START TO FINISH</p><h2 id="fullsongs-title">Play <em>full songs</em></h2></div>
+          </div>
+          <div class="full-mode-callout">
+            <span class="full-mode-icon">↓</span>
+            <div><strong>Follow the falling notes</strong><small>Play each highlighted key as its note reaches the line. Missed and wrong notes reduce your final score.</small></div>
+            <span class="strict-badge">STRICT SCORING</span>
+          </div>
+          <div class="catalog-tools">
+            <label class="search-box"><span>⌕</span><input id="full-song-search" type="search" placeholder="Search full-song performances" /></label>
+            <div class="filter-row" id="full-song-filters" aria-label="Filter full songs">
+              <button class="filter-chip is-active" data-full-filter="All">All</button>
+              <button class="filter-chip" data-full-filter="Kids & Folk">Kids & Folk</button>
+              <button class="filter-chip" data-full-filter="Classical">Classical</button>
+              <button class="filter-chip christian-filter" data-full-filter="Christian & Hymns">Christian & Hymns</button>
+              <button class="filter-chip" data-full-filter="Ragtime">Ragtime</button>
+            </div>
+          </div>
+          <div class="song-summary"><span id="full-song-count">120 full songs</span><button id="shuffle-full-song">Surprise me ↝</button></div>
+          <div class="song-list" id="full-song-list"></div>
+        </section>
+
+        <section class="view lessons-view" id="lessons-view" aria-labelledby="lessons-title">
+          <div class="section-heading">
+            <button class="back-button" data-go="home" aria-label="Back to home">←</button>
+            <div><h2 id="lessons-title">Learning <em>Piano</em></h2></div>
+          </div>
+          <div class="lesson-hero">
+            <div><span class="level-badge">4 LEVELS · FOUNDATION TO INTERMEDIATE</span><h3>Grow from first notes<br />to confident playing.</h3><p>Forty focused lessons and four checkpoint exams that listen while you play.</p></div>
+            <div class="lesson-stat"><strong id="course-percent">0%</strong><span>course complete</span><div><i id="course-progress-bar"></i></div></div>
+          </div>
+          <div class="path-heading"><span>YOUR LEARNING LEVELS</span><small id="course-progress-copy">0 of 40 lessons completed</small></div>
+          <div class="lesson-path" id="lesson-list"></div>
+        </section>
+
+        <section class="view player-view" id="player-view" aria-labelledby="player-title">
+          <div class="player-topline">
+            <button class="back-button" id="player-back" aria-label="Leave practice">←</button>
+            <div class="player-piece"><small id="player-kicker">NOW PRACTICING</small><strong id="player-title">Ode to Joy</strong><span id="player-composer">Ludwig van Beethoven</span></div>
+            <button class="icon-button" id="restart-button" aria-label="Restart practice">↻</button>
+          </div>
+
+          <div class="feedback-panel" id="feedback-panel">
+            <div class="feedback-copy">
+              <span class="status-dot"></span>
+              <div><small id="feedback-label">READY WHEN YOU ARE</small><strong id="feedback-text">Play the highlighted key</strong></div>
+            </div>
+          </div>
+
+          <div class="full-song-panel" id="full-song-panel">
+            <div class="falling-stage" id="falling-stage" aria-label="Falling-note timing guide">
+              <div class="stage-grid" aria-hidden="true"></div>
+              <div class="falling-notes" id="falling-notes"></div>
+              <div class="stage-legend" aria-label="Note status legend"><span><i class="legend-upcoming"></i> Upcoming</span><span><i class="legend-perfect"></i> Correct</span><span><i class="legend-missed"></i> Missed</span></div>
+              <div class="stage-score-pill"><small>CORRECT</small><strong id="full-score">100%</strong></div>
+              <strong class="stage-timing-status" id="timing-status">Waiting to start</strong>
+              <div class="hit-line"><span>PLAY NOW</span></div>
+              <div class="stage-overlay" id="stage-overlay">
+                <span class="overlay-icon">♪</span>
+                <strong id="overlay-title">Ready to play?</strong>
+                <small id="overlay-copy">Notes fall toward the line. Press the matching key when they land.</small>
+                <button class="start-song-button" id="start-full-song">Start full song <span>▶</span></button>
+              </div>
+            </div>
+          </div>
+
+          <div class="music-stage">
+            <div class="tempo-row"><span>♩ = <strong id="tempo-value">76</strong></span><span id="measure-label">Measure 1 of 4</span><button id="listen-demo">♪ Hear it</button></div>
+            <div class="staff" id="staff" aria-label="Music notes"></div>
+            <div class="next-note-card"><small>NEXT NOTE</small><strong id="next-note-name">C4</strong><span id="next-note-hint">Play middle C</span></div>
+          </div>
+
+          <div class="piano-wrap">
+            <div class="piano" id="piano" aria-label="Interactive piano keyboard"></div>
+          </div>
+          <div class="keyboard-legend"><span id="input-mode-status">Play the glowing piano key</span></div>
+        </section>
+      </main>
+    </div>
+
+    <div class="input-choice-backdrop" id="input-choice-modal" hidden>
+      <section class="input-choice-dialog" role="dialog" aria-modal="true" aria-labelledby="input-choice-title">
+        <span class="input-choice-mark">♪</span>
+        <p class="eyebrow">CHOOSE HOW YOU WILL PLAY</p>
+        <h2 id="input-choice-title">What piano are you using?</h2>
+        <p class="input-choice-copy">Choose once before this song starts.</p>
+        <div class="input-choice-grid">
+          <button data-choose-input="microphone"><span>◉</span><strong>Real piano</strong><small>The microphone listens for each key</small><em>RECOMMENDED</em></button>
+          <button data-choose-input="midi"><span>⌁</span><strong>MIDI piano</strong><small>Use a USB or Bluetooth MIDI keyboard</small></button>
+          <button data-choose-input="screen"><span>▥</span><strong>Touch piano</strong><small>Play the piano keys on this screen</small></button>
+        </div>
+        <button class="input-choice-cancel" id="input-choice-cancel">Cancel</button>
+      </section>
+    </div>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <div class="ios-install-backdrop" id="ios-install-modal" hidden>
+      <section class="ios-install-sheet" role="dialog" aria-modal="true" aria-labelledby="ios-install-title">
+        <span class="ios-sheet-handle" aria-hidden="true"></span>
+        <img src="icons/icon-192.png" alt="" />
+        <div>
+          <h2 id="ios-install-title">Add Piano Dino to your Home Screen</h2>
+          <p>In Safari, tap <strong>Share</strong> <span class="share-symbol" aria-hidden="true">↥</span>, then choose <strong>Add to Home Screen</strong>.</p>
+        </div>
+        <button id="ios-install-close" type="button">Got it</button>
+      </section>
+    </div>
+    <div class="calibration-backdrop" id="calibration-modal" hidden>
+      <section class="calibration-sheet" role="dialog" aria-modal="true" aria-labelledby="calibration-title">
+        <p class="eyebrow">TUNE PIANO DINO TO YOUR PIANO</p>
+        <h2 id="calibration-title">Play middle <span id="calibration-note">C</span></h2>
+        <p>Tap Listen, stay quiet, then press the matching piano key once and let it ring. Speech outside the listening window is ignored.</p>
+        <div class="calibration-note-row" id="calibration-note-row"></div>
+        <div class="calibration-listening"><i></i><span id="calibration-status">Ready to capture</span></div>
+        <button class="calibration-capture" id="calibration-capture" type="button">Listen for C</button>
+        <button id="calibration-cancel" type="button">Use touch piano instead</button>
+      </section>
+    </div>
+    <script src="app.js"></script>
+  </body>
+</html>
