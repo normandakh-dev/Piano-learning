@@ -153,7 +153,7 @@ const lessons = [
   { kind: "exam", checkpoint: 1, title: "Foundation exam", detail: "Ten notes, no highlighted-key hints", duration: "PASS 80%", passScore: 80, notes: ["C4", "E4", "D4", "G4", "F4", "C5", "A4", "E4", "D4", "C4"] },
   { number: 11, title: "Sharps and black keys", detail: "Meet F-sharp, G-sharp and C-sharp", duration: "8 min", notes: ["F4", "F#4", "G4", "G#4", "A4", "G#4", "G4"] },
   { number: 12, title: "Intervals", detail: "Hear and play seconds, thirds and fifths", duration: "9 min", notes: ["C4", "E4", "D4", "F4", "C4", "G4"] },
-  { number: 13, title: "Building a chord", detail: "Learn the notes of C major", duration: "8 min", notes: ["C4", "E4", "G4", "E4", "C4"] },
+  { number: 13, title: "Building a chord", detail: "Play C, E and G together as one chord", duration: "8 min", notes: ["C4", "E4", "G4", ["C4", "E4", "G4"], ["C4", "E4", "G4"]] },
   { number: 14, title: "Eighth-note motion", detail: "Play an even, quicker pulse", duration: "10 min", notes: ["C4", "D4", "E4", "F4", "G4", "A4", "G4", "F4"] },
   { number: 15, title: "Phrase and breathe", detail: "Shape a melody instead of typing notes", duration: "8 min", notes: ["E4", "F4", "G4", "C5", "G4", "F4", "E4"] },
   { number: 16, title: "Hand coordination", detail: "Prepare two-hand movement", duration: "11 min", notes: ["C4", "G4", "D4", "A4", "E4", "G4"] },
@@ -208,6 +208,23 @@ const sequences = [
 ];
 
 const pianoNotes = ["C4","C#4","D4","D#4","E4","F4","F#4","G4","G#4","A4","A#4","B4","C5"];
+
+// A sequence is a list of steps, and a step is the set of notes to be struck together.
+// Phrases stay flat to author ("C4"), a chord is written as a nested array
+// (["C4","E4","G4"]), and both normalise to the same shape here.
+const TROUBLE_HINT_THRESHOLD = 3;
+
+function toSequence(notes) {
+  return (notes || []).map(step => Array.isArray(step) ? [...step] : [step]);
+}
+
+function stepNotes(index) {
+  return state.sequence[index] || [];
+}
+
+function hasChordStep() {
+  return state.sequence.some(step => step.length > 1);
+}
 const keyboardMap = { a: "C4", w: "C#4", s: "D4", e: "D#4", d: "E4", f: "F4", t: "F#4", g: "G4", y: "G#4", h: "A4", u: "A#4", j: "B4", k: "C5" };
 
 const state = {
@@ -224,6 +241,9 @@ const state = {
   performanceMode: false,
   performance: null,
   noteIndex: 0,
+  stepPressed: [],
+  heldMidiNotes: new Set(),
+  trouble: {},
   correct: 0,
   attempts: 0,
   inputMode: localStorage.getItem("pianoSproutsInputMode") || "screen",
@@ -433,7 +453,7 @@ function startSong(song) {
   state.activeLessonIndex = null;
   state.isExam = false;
   state.performanceMode = true;
-  state.sequence = buildFullSequence(song);
+  state.sequence = toSequence(buildFullSequence(song));
   document.querySelector("#player-view").classList.add("is-full-song");
   document.querySelector("#player-view").classList.remove("is-exam", "is-lesson");
   document.querySelector("#player-kicker").textContent = "";
@@ -452,7 +472,7 @@ function startPracticeSong(song) {
   state.performanceMode = false;
   let sequence = sequences[(song.id - 1) % sequences.length];
   if (song.title === "Ode to Joy") sequence = sequences[2];
-  state.sequence = sequence;
+  state.sequence = toSequence(sequence);
   document.querySelector("#player-view").classList.remove("is-full-song", "is-exam", "is-lesson");
   document.querySelector("#player-kicker").textContent = "SONG PRACTICE · WAIT MODE";
   document.querySelector("#player-title").textContent = song.title;
@@ -468,7 +488,7 @@ function startLesson(lesson, index) {
   state.activeLessonIndex = index;
   state.isExam = lesson.kind === "exam";
   state.performanceMode = false;
-  state.sequence = lesson.notes || sequences[index % sequences.length];
+  state.sequence = toSequence(lesson.notes || sequences[index % sequences.length]);
   document.querySelector("#player-view").classList.remove("is-full-song");
   document.querySelector("#player-view").classList.add("is-lesson");
   document.querySelector("#player-view").classList.toggle("is-exam", state.isExam);
@@ -512,12 +532,13 @@ function renderPiano() {
 
 function renderStaff() {
   const naturalOrder = ["C4","D4","E4","F4","G4","A4","B4","C5","D5","E5","F5","G5"];
-  document.querySelector("#staff").innerHTML = state.sequence.map((note, index) => {
-    const natural = note.replace("#", "");
-    const level = Math.max(0, naturalOrder.indexOf(natural));
+  document.querySelector("#staff").innerHTML = state.sequence.map((step, index) => {
     const left = 5 + (index * 88 / Math.max(1, state.sequence.length));
-    const bottom = 1 + level * 6.5;
-    return `<span class="staff-note" data-staff-index="${index}" style="left:${left}%;bottom:${bottom}px" title="${note}"></span>`;
+    return step.map(note => {
+      const level = Math.max(0, naturalOrder.indexOf(note.replace("#", "")));
+      const bottom = 1 + level * 6.5;
+      return `<span class="staff-note" data-staff-index="${index}" style="left:${left}%;bottom:${bottom}px" title="${note}"></span>`;
+    }).join("");
   }).join("");
 }
 
@@ -556,7 +577,7 @@ function createPerformance() {
     correct: 0,
     missed: 0,
     wrong: 0,
-    events: state.sequence.map((note, index) => ({ note, time: travelMs + index * beatMs, status: "pending", timingError: null }))
+    events: state.sequence.flatMap((step, index) => step.map(note => ({ note, time: travelMs + index * beatMs, status: "pending", timingError: null })))
   };
 }
 
@@ -697,6 +718,8 @@ function handleFullSongNote(note, keyElement) {
     setTimeout(updateFullSongTarget, 110);
   } else {
     performanceState.wrong += 1;
+    const missedIndex = getCurrentPerformanceEvent(elapsed) ? performanceState.events.indexOf(getCurrentPerformanceEvent(elapsed)) : -1;
+    if (missedIndex >= 0) logStepTrouble(missedIndex);
     const expected = getCurrentPerformanceEvent(elapsed)?.note;
     setFeedback("WRONG KEY", expected ? `You played ${friendlyNote(note)} · wait for ${friendlyNote(expected)}` : `${friendlyNote(note)} was outside the timing window`, "wrong");
     keyElement?.classList.add("is-wrong");
@@ -776,6 +799,9 @@ function resetPractice() {
     return;
   }
   state.noteIndex = 0;
+  state.stepPressed = [];
+  state.heldMidiNotes.clear();
+  state.trouble = readNoteTrouble();
   state.correct = 0;
   state.attempts = 0;
   renderStaff();
@@ -784,16 +810,35 @@ function resetPractice() {
 }
 
 function updatePracticeUI() {
-  const expected = state.sequence[state.noteIndex];
-  document.querySelectorAll(".piano-key").forEach(key => key.classList.toggle("is-expected", !state.isExam && key.dataset.note === expected));
-  document.querySelectorAll(".staff-note").forEach((note, index) => {
-    note.classList.toggle("is-complete", index < state.noteIndex);
-    note.classList.toggle("is-current", index === state.noteIndex);
-    note.classList.remove("is-wrong");
+  const step = stepNotes(state.noteIndex);
+  const remaining = step.filter(note => !state.stepPressed.includes(note));
+  document.querySelectorAll(".piano-key").forEach(key => key.classList.toggle("is-expected", !state.isExam && remaining.includes(key.dataset.note)));
+  document.querySelectorAll(".staff-note").forEach(element => {
+    const index = Number(element.dataset.staffIndex);
+    element.classList.toggle("is-complete", index < state.noteIndex);
+    element.classList.toggle("is-current", index === state.noteIndex);
+    element.classList.toggle("is-tricky", (state.trouble[index] || 0) >= TROUBLE_HINT_THRESHOLD);
+    element.classList.remove("is-wrong");
   });
-  document.querySelector("#measure-label").textContent = `Note ${Math.min(state.noteIndex + 1, state.sequence.length)} of ${state.sequence.length}`;
-  document.querySelector("#next-note-name").textContent = expected ? state.isExam ? "?" : expected : "✓";
-  document.querySelector("#next-note-hint").textContent = expected ? state.isExam ? "Read the note on the staff" : `Play ${friendlyNote(expected)}` : state.isExam ? "Exam complete" : "Phrase complete";
+  const positionLabel = hasChordStep() ? "Step" : "Note";
+  document.querySelector("#measure-label").textContent = `${positionLabel} ${Math.min(state.noteIndex + 1, state.sequence.length)} of ${state.sequence.length}`;
+  const nameElement = document.querySelector("#next-note-name");
+  const isChordPrompt = !state.isExam && remaining.length > 1;
+  nameElement.classList.toggle("is-chord", isChordPrompt);
+  nameElement.textContent = step.length ? (state.isExam ? "?" : isChordPrompt ? remaining.map(note => note.replace(/\d/g, "")).join("+") : remaining[0]) : "✓";
+  document.querySelector("#next-note-hint").textContent = practiceHint(step, remaining);
+}
+
+function practiceHint(step, remaining) {
+  if (!step.length) return state.isExam ? "Exam complete" : "Phrase complete";
+  if (state.isExam) return "Read the note on the staff";
+  // A key still physically down cannot answer the score again — it has to be released
+  // and struck, so say that rather than leaving the player wondering why nothing happens.
+  const held = remaining.filter(note => state.heldMidiNotes.has(noteToMidi(note)));
+  if (held.length) return `Release ${held.map(friendlyNote).join(" and ")} and play it again`;
+  if (state.stepPressed.length) return `Now add ${remaining.map(friendlyNote).join(" and ")}`;
+  if (step.length > 1) return `Play ${step.map(friendlyNote).join(" + ")} together`;
+  return `Play ${friendlyNote(step[0])}`;
 }
 
 function handleNote(note, keyElement) {
@@ -803,32 +848,105 @@ function handleNote(note, keyElement) {
     return;
   }
   if (state.noteIndex >= state.sequence.length) return;
-  const expected = state.sequence[state.noteIndex];
+  const step = stepNotes(state.noteIndex);
+
+  // Already counted for this step: a nudge, not a mistake, so it costs no accuracy.
+  if (state.stepPressed.includes(note)) {
+    const remaining = step.filter(item => !state.stepPressed.includes(item));
+    setFeedback("ALREADY DOWN", `${friendlyNote(note)} is counted — now add ${remaining.map(friendlyNote).join(" and ")}`, "neutral");
+    return;
+  }
+
   state.attempts += 1;
-  if (note === expected) {
-    state.correct += 1;
-    state.noteIndex += 1;
-    const accuracy = Math.round((state.correct / state.attempts) * 100);
-    if (state.noteIndex === state.sequence.length) {
-      updatePracticeUI();
-      if (state.activeLessonIndex !== null) finishLessonRun(accuracy);
-      else {
-        setFeedback("PRACTICE COMPLETE", accuracy >= 90 ? "Beautifully played!" : "Nice work — repeat it to improve your accuracy", "correct");
-        document.querySelector("#next-note-hint").textContent = "Phrase complete";
-        localStorage.setItem("lentoLastAccuracy", String(accuracy));
-        if (accuracy >= 90) setTimeout(() => playCelebration(), 180);
-      }
-    } else {
-      setFeedback("CORRECT", `${friendlyNote(note)} — keep going`, "correct");
-      updatePracticeUI();
+
+  if (!step.includes(note)) {
+    logStepTrouble(state.noteIndex);
+    setFeedback("TRY AGAIN", `That was ${friendlyNote(note)}. Find ${step.map(friendlyNote).join(" + ")}.`, "wrong");
+    keyElement?.classList.add("is-wrong");
+    document.querySelectorAll(`[data-staff-index="${state.noteIndex}"]`).forEach(element => element.classList.add("is-wrong"));
+    setTimeout(() => keyElement?.classList.remove("is-wrong"), 380);
+    return;
+  }
+
+  // Within a step the order does not matter; every note has to be struck.
+  state.correct += 1;
+  state.stepPressed.push(note);
+  if (state.stepPressed.length < step.length) {
+    const remaining = step.filter(item => !state.stepPressed.includes(item));
+    setFeedback("KEEP GOING", `${friendlyNote(note)} — now add ${remaining.map(friendlyNote).join(" and ")}`, "correct");
+    updatePracticeUI();
+    return;
+  }
+
+  state.stepPressed = [];
+  state.noteIndex += 1;
+  const accuracy = Math.round((state.correct / state.attempts) * 100);
+  if (state.noteIndex === state.sequence.length) {
+    updatePracticeUI();
+    if (state.activeLessonIndex !== null) finishLessonRun(accuracy);
+    else {
+      const hint = troubleSpotHint();
+      setFeedback("PRACTICE COMPLETE", hint || (accuracy >= 90 ? "Beautifully played!" : "Nice work — repeat it to improve your accuracy"), "correct");
+      document.querySelector("#next-note-hint").textContent = "Phrase complete";
+      localStorage.setItem("lentoLastAccuracy", String(accuracy));
+      if (accuracy >= 90) setTimeout(() => playCelebration(), 180);
     }
   } else {
-    const accuracy = Math.round((state.correct / state.attempts) * 100);
-    setFeedback("TRY AGAIN", `That was ${friendlyNote(note)}. Find ${friendlyNote(expected)}.`, "wrong");
-    keyElement?.classList.add("is-wrong");
-    document.querySelector(`[data-staff-index="${state.noteIndex}"]`)?.classList.add("is-wrong");
-    setTimeout(() => keyElement?.classList.remove("is-wrong"), 380);
+    setFeedback("CORRECT", `${friendlyNote(note)} — keep going`, "correct");
+    updatePracticeUI();
   }
+}
+
+// Mirrors gangQin's cursorWrongNoteCount: how often each position in the phrase is
+// fluffed, kept across sessions so the staff can point at the spot that needs work.
+function practiceKey() {
+  if (state.activeLessonIndex !== null) return `lesson:${state.activeLessonIndex}`;
+  if (state.activeSong) return `${state.performanceMode ? "fullsong" : "song"}:${state.activeSong.id}`;
+  return "";
+}
+
+function readAllTrouble() {
+  try {
+    const saved = JSON.parse(localStorage.getItem("pianoDinoNoteTrouble") || "{}");
+    return saved && typeof saved === "object" ? saved : {};
+  } catch {
+    return {};
+  }
+}
+
+function readNoteTrouble() {
+  const key = practiceKey();
+  return key ? readAllTrouble()[key] || {} : {};
+}
+
+function logStepTrouble(index) {
+  const key = practiceKey();
+  if (!key) return;
+  const all = readAllTrouble();
+  const counts = all[key] || {};
+  counts[index] = (counts[index] || 0) + 1;
+  all[key] = counts;
+  state.trouble = counts;
+  try {
+    localStorage.setItem("pianoDinoNoteTrouble", JSON.stringify(all));
+  } catch {}
+}
+
+function troubleLabel(index) {
+  if (state.performanceMode) {
+    const event = state.performance?.events[index];
+    return event ? friendlyNote(event.note) : "";
+  }
+  return stepNotes(index).map(friendlyNote).join(" + ");
+}
+
+function troubleSpotHint() {
+  const worst = Object.entries(state.trouble)
+    .filter(([, count]) => count >= TROUBLE_HINT_THRESHOLD)
+    .sort((a, b) => b[1] - a[1])[0];
+  if (!worst) return "";
+  const label = troubleLabel(Number(worst[0]));
+  return label ? `${label} at position ${Number(worst[0]) + 1} trips you up most — ${worst[1]} misses so far` : "";
 }
 
 function finishLessonRun(accuracy) {
@@ -947,8 +1065,8 @@ document.querySelector("#listen-demo").addEventListener("click", async () => {
   demoButton.disabled = true;
   state.demoPlaying = true;
   setInputModeStatus("Listening only · this demo cannot complete the lesson");
-  state.sequence.forEach((note, index) => {
-    state.demoTimers.push(setTimeout(() => playTone(note, .48), index * 390));
+  state.sequence.forEach((step, index) => {
+    step.forEach(note => state.demoTimers.push(setTimeout(() => playTone(note, .48), index * 390)));
   });
   state.demoTimers.push(setTimeout(() => {
     state.demoPlaying = false;
@@ -969,6 +1087,7 @@ function stopDemo() {
 async function activateInputMode(mode) {
   state.inputMode = mode;
   localStorage.setItem("pianoSproutsInputMode", mode);
+  state.heldMidiNotes.clear();
   stopMicrophone();
   if (mode === "microphone") await startMicrophone();
   else if (mode === "midi") await startMidi();
@@ -994,7 +1113,23 @@ async function startMidi() {
     }
     inputs.forEach(input => input.onmidimessage = event => {
       const [status, midi, velocity] = event.data;
-      if ((status & 0xf0) === 0x90 && velocity > 0) handleNote(midiToNote(midi), document.querySelector(`[data-note="${midiToNote(midi)}"]`));
+      const command = status & 0xf0;
+      // A key that is already down cannot answer the score a second time: it must be
+      // released and struck again. Without tracking note-off there is no way to tell a
+      // held key from a re-struck one, and repeated notes read as a single press.
+      if (command === 0x80 || (command === 0x90 && velocity === 0)) {
+        state.heldMidiNotes.delete(midi);
+        const key = document.querySelector(`[data-note="${midiToNote(midi)}"]`);
+        key?.classList.remove("is-pressed");
+        if (!state.performanceMode) updatePracticeUI();
+        return;
+      }
+      if (command !== 0x90 || state.heldMidiNotes.has(midi)) return;
+      state.heldMidiNotes.add(midi);
+      const note = midiToNote(midi);
+      const key = document.querySelector(`[data-note="${note}"]`);
+      key?.classList.add("is-pressed");
+      handleNote(note, key);
     });
     setInputModeStatus(`MIDI connected · ${inputs[0].name || "piano"}`);
     toast("MIDI piano connected");
@@ -1012,6 +1147,9 @@ const MIC_SILENCE_LEVEL = .016;
 const MIC_NOTE_LEVEL = .026;
 const MIC_MIN_CLARITY = .74;
 const MIC_MAX_CENTS_OFF = 45;
+const MIC_STRICT_CLARITY = .86;
+const MIC_STRICT_CENTS_OFF = 28;
+const MIC_STRICT_CONFIRM_FRAMES = 5;
 const MIC_OCTAVE_PREFERENCE = .86;
 const MIC_ANALYSIS_INTERVAL_MS = 32;
 const MIC_ATTACK_WINDOW_MS = 700;
@@ -1085,10 +1223,16 @@ async function startMicrophone() {
 
       const midi = Math.round(69 + 12 * Math.log2(pitch.frequency / 440));
       const note = midiToNote(midi);
-      if (!pianoNotes.includes(note) || !expectedMicNotes().includes(note)) return;
+      if (!pianoNotes.includes(note)) return;
+      // Report the note that was actually played, not just the one the score wants, so a
+      // wrong key gets the same feedback here as it does on touch and MIDI. An unexpected
+      // note has to be heard clearly before it counts as a mistake, so that room noise
+      // landing on a piano pitch cannot cost the player their accuracy.
+      const isExpected = expectedMicNotes().includes(note);
       const exactFrequency = 440 * Math.pow(2, (midi - 69) / 12);
       const cents = 1200 * Math.log2(pitch.frequency / exactFrequency);
-      if (Math.abs(cents) > MIC_MAX_CENTS_OFF) return;
+      if (Math.abs(cents) > (isExpected ? MIC_MAX_CENTS_OFF : MIC_STRICT_CENTS_OFF)) return;
+      if (!isExpected && pitch.clarity < MIC_STRICT_CLARITY) return;
       analyser.getFloatFrequencyData(spectrum);
       if (!hasPianoHarmonics(pitch.frequency, spectrum, state.audioContext.sampleRate, analyser.fftSize)) return;
 
@@ -1097,7 +1241,7 @@ async function startMicrophone() {
         state.micCandidate = note;
         state.micCandidateFrames = 1;
       }
-      if (state.micCandidateFrames < MIC_CONFIRM_FRAMES) return;
+      if (state.micCandidateFrames < (isExpected ? MIC_CONFIRM_FRAMES : MIC_STRICT_CONFIRM_FRAMES)) return;
 
       state.micAttackUntil = 0;
       state.micCandidate = null;
@@ -1171,10 +1315,7 @@ document.querySelector("#calibration-cancel")?.addEventListener("click", () => {
 
 function expectedMicNotes() {
   if (state.demoPlaying) return [];
-  if (!state.performanceMode) {
-    const expected = state.sequence[state.noteIndex];
-    return expected ? [expected] : [];
-  }
+  if (!state.performanceMode) return stepNotes(state.noteIndex).filter(note => !state.stepPressed.includes(note));
   if (!state.performance || state.performance.status !== "playing") return [];
   const elapsed = performance.now() - state.performance.startAt;
   return state.performance.events
@@ -1199,7 +1340,7 @@ function stopMicrophone() {
 
 window.handleNativePianoNote = note => {
   if (state.inputMode !== "microphone" || state.view !== "player") return;
-  if (!expectedMicNotes().includes(note)) return;
+  if (!pianoNotes.includes(note)) return;
   handleNote(note, document.querySelector(`[data-note="${note}"]`));
 };
 
